@@ -12,6 +12,7 @@ pygame.display.set_caption("Math Game")
 
 # Colors
 WHITE = (255, 255, 255)
+BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -32,27 +33,25 @@ clock = pygame.time.Clock()
 questions_per_round = 10
 time_limit_per_question = 10  # in seconds
 
-def generate_question(operation):
+# Operation symbols for generating questions
+operation_symbols = {
+    'addition': '+',
+    'subtraction': '-',
+    'multiplication': '*',
+    'division': '/',
+    'mixed mode': None  # No specific symbol for mixed mode
+}
+
+def generate_question(operation=None):
     num1 = random.randint(-10, 10)
     num2 = random.randint(1, 10)  # Ensure non-zero denominator for division
-    if operation == '+':
-        operator = '+'
-    elif operation == '-':
-        operator = '-'
-    elif operation == '*':
-        operator = '*'
-    elif operation == '/':
-        operator = '/'
+    operator = operation if operation else random.choice(['+', '-', '*', '/'])
+
+    if operator == '/':
         # Adjust the numerator to ensure a whole number result
         num1 = num2 * random.randint(1, 10)
-    else:
-        operator = '+'
+    
     question = f"{num1} {operator} {num2} ="
-    
-    # Handle division by ensuring that the result is an integer
-    if operator == '/' and num1 % num2 != 0:
-        num1 = num1 * num2  # Adjust numerator to make the result an integer
-    
     answer = eval(f"{num1} {operator} {num2}")
     return question, answer
 
@@ -63,7 +62,15 @@ def draw_text(text, font, color, x, y):
 
 def spawn_confetti():
     for _ in range(100):
-        confetti_particles.append([random.randint(0, WIDTH), HEIGHT, random.uniform(-1, 1), random.uniform(-4, -1), random.choice([(255, 0, 0), (0, 255, 0), (0, 0, 255)])])
+        # Increase the values here for faster confetti
+        confetti_particles.append([
+            random.randint(0, WIDTH),
+            HEIGHT,
+            random.uniform(-2, 2),  # Faster horizontal movement
+            random.uniform(-24, -8),  # Faster vertical movement
+            random.choice([(255, 0, 0), (0, 255, 0), (0, 0, 255)])
+        ])
+
 
 def draw_confetti():
     for particle in confetti_particles:
@@ -76,8 +83,7 @@ def update_confetti():
 
 def show_menu():
     selected_option = 0
-
-    operation_options = ['+', '-', '*', '/']
+    operation_options = ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Mixed Mode']
 
     while True:
         screen.fill(BACKGROUND_COLOR)
@@ -89,7 +95,7 @@ def show_menu():
         screen.blit(menu_text, (WIDTH // 2 - menu_text.get_width() // 2, HEIGHT // 2 - 150))
 
         for i, option in enumerate(operation_options):
-            text_color = WHITE if i != selected_option else RED
+            text_color = WHITE if i != selected_option else GREEN
             draw_text(f"{i + 1}. {option}", menu_font, text_color, WIDTH // 2, HEIGHT // 2 - 50 + i * 50)
 
         pygame.display.flip()
@@ -104,15 +110,12 @@ def show_menu():
                 elif event.key == pygame.K_UP:
                     selected_option = (selected_option - 1) % len(operation_options)
                 elif event.key == pygame.K_RETURN:
-                    return operation_options[selected_option].lower()  # Return lowercase for the selected operation
+                    return operation_options[selected_option]  # Return the selected operation as is
                 elif event.key == pygame.K_ESCAPE:
                     pygame.event.clear()  # Clear events to prevent capturing Escape in the main loop
                     return None  # Return None when Escape is pressed
 
         clock.tick(30)
-
-
-
 
 def game_over():
     screen.fill(BACKGROUND_COLOR)
@@ -135,16 +138,27 @@ def main():
         if operation is None:
             continue  # Go back to the main menu if operation is None
 
-        start_time = time.time()
+        score = 0
+        game_continues = True
+        start_time = time.time()  # Start the timer before the question loop
 
         for _ in range(questions_per_round):
-            question, correct_answer = generate_question(operation)
+            if not game_continues:
+                break  # Exit the questions loop if Escape is pressed
+
+            if operation.lower() == 'mixed mode':
+                question, correct_answer = generate_question()  # For mixed mode
+            else:
+                operation_symbol = operation_symbols[operation.lower()]
+                question, correct_answer = generate_question(operation_symbol)  # For single operation mode
+
             user_answer = ""
-            correct_message_displayed = False
-            confetti_spawned = False
-            escape_pressed = False
+            answer_submitted = False
 
             while True:
+                elapsed_time = time.time() - start_time
+                formatted_time = time.strftime("%M:%S", time.gmtime(elapsed_time))
+
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -154,39 +168,60 @@ def main():
                             user_answer += pygame.key.name(event.key)
                         elif event.key == pygame.K_BACKSPACE:
                             user_answer = user_answer[:-1]
+                        elif event.key == pygame.K_RETURN:
+                            answer_submitted = True
                         elif event.key == pygame.K_ESCAPE:
-                            escape_pressed = True
+                            game_continues = False
+                            break
 
-                if escape_pressed:
+                if not game_continues:
                     break  # Break the inner loop to go back to the main menu
 
                 screen.fill(BACKGROUND_COLOR)
 
+                # Draw the current score, question, and stopwatch
+                draw_text(f"Score: {score}", text_font, WHITE, WIDTH - 100, 30)
+                draw_text(f"Time: {formatted_time}", text_font, WHITE, 150, 30)
                 combined_text = f"{question} {user_answer}"
                 draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
 
-                if user_answer.replace('-', '').isdigit() and int(user_answer) == correct_answer and not correct_message_displayed:
-                    correct_message_displayed = True
-                    draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 6)
+                if answer_submitted:
+                    if user_answer.replace('-', '').isdigit() and int(user_answer) == correct_answer:
+                        correct_message_displayed = True
+                        spawn_confetti()
 
-                if correct_message_displayed and not confetti_spawned:
-                    spawn_confetti()
-                    confetti_spawned = True
+                        for _ in range(50):
+                            update_confetti()
+                            screen.fill(BACKGROUND_COLOR)
+                            draw_text(f"Score: {score}", text_font, WHITE, WIDTH - 100, 30)
+                            draw_text(f"Time: {formatted_time}", text_font, WHITE, 150, 30)
+                            combined_text = f"{question} {user_answer}"
+                            draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
+                            if correct_message_displayed:
+                                draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 6)
+                            draw_confetti()
+                            pygame.display.flip()
+                            pygame.time.delay(20)
 
-                draw_confetti()
-                update_confetti()
+                        score += 1
+                        break
+                    else:
+                        screen.fill(BACKGROUND_COLOR)
+                        draw_text("Incorrect", text_font, RED, WIDTH // 2, HEIGHT // 2 - 50)
+                        draw_text(f"Your answer: {user_answer}", text_font, WHITE, WIDTH // 2, HEIGHT // 2)
+                        draw_text(f"Correct answer: {correct_answer}", text_font, GREEN, WIDTH // 2, HEIGHT // 2 + 50)
+                        pygame.display.flip()
+                        pygame.time.wait(2000)
+                        game_continues = False
+                        break
 
                 pygame.display.flip()
 
-                if user_answer.replace('-', '').isdigit() and int(user_answer) == correct_answer:
-                    score += 1
-                    pygame.time.wait(1000)
-                    break
+            if not game_continues:
+                break
 
-            elapsed_time = time.time() - start_time
-
-            if escape_pressed or elapsed_time > time_limit_per_question * questions_per_round:
-                break  # Break out of the main loop if Escape is pressed or time is up
+        if not game_continues:
+            continue
 
         game_over()
 
@@ -194,29 +229,5 @@ if __name__ == "__main__":
     main()
 
 
-if __name__ == "__main__":
-    main()
 
 
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
-
-
-if __name__ == "__main__":
-    main()
