@@ -21,6 +21,7 @@ BACKGROUND_COLOR = (38, 70, 83)  # Nice background color
 title_font = pygame.font.Font(None, 72)
 menu_font = pygame.font.Font(None, 36)
 text_font = pygame.font.Font(None, 48)
+question_font = pygame.font.Font(None, 65)
 correct_font = pygame.font.Font(None, 64)  # Bigger font for "Correct!"
 
 # Confetti parameters
@@ -145,6 +146,17 @@ def game_overs(start_time, operation, correct_answer, user_answer, question):
     pygame.display.flip()
     pygame.time.wait(3000)
 
+def draw_progress_bar(current, total, bar_width=600, bar_height=20):
+    progress = current / total
+    fill_width = progress * bar_width
+
+    bar_x = (WIDTH - bar_width) // 2
+    bar_y = HEIGHT - 50  # Positioning the bar at the bottom
+
+    pygame.draw.rect(screen, WHITE, [bar_x, bar_y, bar_width, bar_height], 2)  # Border of the bar
+    pygame.draw.rect(screen, GREEN, [bar_x, bar_y, fill_width, bar_height])  # Filled part of the bar
+
+
 
 
 def winning_screen(start_time, operation):
@@ -178,11 +190,13 @@ def main():
             continue  # Go back to the main menu if operation is None
 
         game_continues = True
+        current_question_number = 0
 
         start_time = time.time()  # Start the timer at the beginning of the round
         fastest_time_for_operation = fastest_times.get(operation.lower(), float('inf'))  # Get the fastest time for the current operation
 
         for _ in range(questions_per_round):
+            current_question_number += 1
             if not game_continues:
                 break  # Exit the questions loop if Escape is pressed
 
@@ -221,11 +235,15 @@ def main():
                 draw_text(f"Time: {time.time() - start_time:.2f}s", text_font, WHITE, 120, 30)
 
 # Fastest time for the operation on the top right
-                fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
+                if fastest_time_for_operation == float("inf"):
+                    fastest_time_text = f"Fastest time: None"
+                else:
+                    fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
+
                 draw_text(fastest_time_text, text_font, WHITE, WIDTH + 110 - text_font.size(fastest_time_text)[0], 30)
 
                 combined_text = f"{question} {user_answer}"
-                draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
+                draw_text(combined_text, question_font, WHITE, WIDTH // 2, HEIGHT // 2)
 
                 if answer_submitted:
                     if user_answer.replace('-', '').isdigit() and int(user_answer) == correct_answer:
@@ -239,14 +257,19 @@ def main():
                             draw_text(f"Time: {time.time() - start_time:.2f}s", text_font, WHITE, 120, 30)
 
 # Fastest time for the operation on the top right
-                            fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
+                            if fastest_time_for_operation == float("inf"):
+                                fastest_time_text = f"Fastest time: None"
+                            else:
+                                fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
                             draw_text(fastest_time_text, text_font, WHITE, WIDTH + 110 - text_font.size(fastest_time_text)[0], 30)
 
                             combined_text = f"{question} {user_answer}"
-                            draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
+                            draw_text(combined_text, question_font, WHITE, WIDTH // 2, HEIGHT // 2)
 
                             if correct_message_displayed:
                                 draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 6)
+
+                            draw_progress_bar(current_question_number, questions_per_round)
 
                             draw_confetti()  # Draw confetti
                             pygame.display.flip()
@@ -257,6 +280,8 @@ def main():
                         game_overs(start_time, operation, correct_answer, user_answer, question)
                         game_continues = False
                         break
+
+                draw_progress_bar(current_question_number - 1, questions_per_round)
 
                 pygame.display.flip()
 
