@@ -12,7 +12,6 @@ pygame.display.set_caption("Math Game")
 
 # Colors
 WHITE = (255, 255, 255)
-BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -30,7 +29,7 @@ confetti_particles = []
 # Game variables
 score = 0
 clock = pygame.time.Clock()
-questions_per_round = 10
+questions_per_round = 2
 time_limit_per_question = 10  # in seconds
 
 # Operation symbols for generating questions
@@ -40,6 +39,15 @@ operation_symbols = {
     'multiplication': '*',
     'division': '/',
     'mixed mode': None  # No specific symbol for mixed mode
+}
+
+# Define a dictionary to store the fastest times for each operation
+fastest_times = {
+    'addition': float('inf'),
+    'subtraction': float('inf'),
+    'multiplication': float('inf'),
+    'division': float('inf'),
+    'mixed mode': float('inf')
 }
 
 def generate_question(operation=None):
@@ -70,7 +78,6 @@ def spawn_confetti():
             random.uniform(-24, -8),  # Faster vertical movement
             random.choice([(255, 0, 0), (0, 255, 0), (0, 0, 255)])
         ])
-
 
 def draw_confetti():
     for particle in confetti_particles:
@@ -117,35 +124,64 @@ def show_menu():
 
         clock.tick(30)
 
-def game_over(start_time):
+def game_overs(start_time, operation, correct_answer, user_answer, question):
+    screen.fill(BACKGROUND_COLOR)
+
+    # Display "Game Over" title
+    title_text = title_font.render("Game Over", True, WHITE)
+    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 100))
+
+    # Display the question
+    question_text = text_font.render(f"{question}", True, WHITE)
+    screen.blit(question_text, (WIDTH // 2 - question_text.get_width() // 2, 200))
+
+    # Display the correct answer
+    correct_answer_text = text_font.render(f"Correct Answer: {correct_answer}", True, GREEN)
+    screen.blit(correct_answer_text, (WIDTH // 2 - correct_answer_text.get_width() // 2, 300))
+
+    # Display the user's answer
+    user_answer_text = text_font.render(f"Your Answer: {user_answer}", True, RED)
+    screen.blit(user_answer_text, (WIDTH // 2 - user_answer_text.get_width() // 2, 400))
+
+    pygame.display.flip()
+    pygame.time.wait(3000)
+
+
+
+def winning_screen(start_time, operation):
     screen.fill(BACKGROUND_COLOR)
     
-    title_text = title_font.render("Game Over", True, WHITE)
+    title_text = title_font.render("Good job!", True, GREEN)
     screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 2 - 150))
 
-    score_text = text_font.render(f"Your score: {score}", True, WHITE)
-    screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, HEIGHT // 2 - 50))
-
+    # Display elapsed time in seconds
     elapsed_time = time.time() - start_time
-    formatted_time = time.strftime("%M:%S", time.gmtime(elapsed_time))
-    time_text = text_font.render(f"Time: {formatted_time}", True, WHITE)
-    screen.blit(time_text, (WIDTH // 2 - time_text.get_width() // 2, HEIGHT // 2 + 50))
+    elapsed_time_text = text_font.render(f"Time: {elapsed_time:.2f} seconds", True, WHITE)
+    screen.blit(elapsed_time_text, (WIDTH // 2 - elapsed_time_text.get_width() // 2, HEIGHT // 2 + 50))
+
+    # Display the fastest time for the current operation in seconds (convert to lowercase)
+    fastest_time = fastest_times.get(operation.lower())
+    if fastest_time is not None and fastest_time != float('inf'):
+        fastest_time_text = text_font.render(f"Fastest time: {fastest_time:.2f} seconds", True, WHITE)
+    else:
+        fastest_time_text = text_font.render("Fastest time: N/A", True, WHITE)
+
+    screen.blit(fastest_time_text, (WIDTH // 2 - fastest_time_text.get_width() // 2, HEIGHT // 2 + 100))
 
     pygame.display.flip()
     pygame.time.wait(3000)
 
 def main():
-    global score
-
     while True:
         operation = show_menu()
 
         if operation is None:
             continue  # Go back to the main menu if operation is None
 
-        score = 0
         game_continues = True
-        start_time = time.time()  # Start the timer before the question loop
+
+        start_time = time.time()  # Start the timer at the beginning of the round
+        fastest_time_for_operation = fastest_times.get(operation.lower(), float('inf'))  # Get the fastest time for the current operation
 
         for _ in range(questions_per_round):
             if not game_continues:
@@ -159,11 +195,9 @@ def main():
 
             user_answer = ""
             answer_submitted = False
+            correct_message_displayed = False
 
             while True:
-                elapsed_time = time.time() - start_time
-                formatted_time = time.strftime("%M:%S", time.gmtime(elapsed_time))
-
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -184,39 +218,44 @@ def main():
 
                 screen.fill(BACKGROUND_COLOR)
 
-                # Draw the current score, question, and stopwatch
-                draw_text(f"Score: {score}", text_font, WHITE, WIDTH - 100, 30)
-                draw_text(f"Time: {formatted_time}", text_font, WHITE, 150, 30)
+                # Draw the timer and fastest time for the current operation
+                draw_text(f"Time: {time.time() - start_time:.2f}s", text_font, WHITE, 120, 30)
+
+# Fastest time for the operation on the top right
+                fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
+                draw_text(fastest_time_text, text_font, WHITE, WIDTH + 110 - text_font.size(fastest_time_text)[0], 30)
+
                 combined_text = f"{question} {user_answer}"
                 draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
 
                 if answer_submitted:
                     if user_answer.replace('-', '').isdigit() and int(user_answer) == correct_answer:
                         correct_message_displayed = True
-                        spawn_confetti()
+                        spawn_confetti()  # Spawn confetti
 
-                        for _ in range(50):
-                            update_confetti()
+                        for _ in range(50):  # Confetti animation loop
+                            update_confetti()  # Update confetti positions
                             screen.fill(BACKGROUND_COLOR)
-                            draw_text(f"Score: {score}", text_font, WHITE, WIDTH - 100, 30)
-                            draw_text(f"Time: {formatted_time}", text_font, WHITE, 150, 30)
+
+                            draw_text(f"Time: {time.time() - start_time:.2f}s", text_font, WHITE, 120, 30)
+
+# Fastest time for the operation on the top right
+                            fastest_time_text = f"Fastest time: {fastest_time_for_operation:.2f}s"
+                            draw_text(fastest_time_text, text_font, WHITE, WIDTH + 110 - text_font.size(fastest_time_text)[0], 30)
+
                             combined_text = f"{question} {user_answer}"
                             draw_text(combined_text, text_font, WHITE, WIDTH // 2, HEIGHT // 2)
+
                             if correct_message_displayed:
                                 draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 6)
-                            draw_confetti()
-                            pygame.display.flip()
-                            pygame.time.delay(20)
 
-                        score += 1
+                            draw_confetti()  # Draw confetti
+                            pygame.display.flip()
+                            pygame.time.delay(20)  # Short delay for each frame of confetti animation
+
                         break
                     else:
-                        screen.fill(BACKGROUND_COLOR)
-                        draw_text("Incorrect", text_font, RED, WIDTH // 2, HEIGHT // 2 - 50)
-                        draw_text(f"Your answer: {user_answer}", text_font, WHITE, WIDTH // 2, HEIGHT // 2)
-                        draw_text(f"Correct answer: {correct_answer}", text_font, GREEN, WIDTH // 2, HEIGHT // 2 + 50)
-                        pygame.display.flip()
-                        pygame.time.wait(2000)
+                        game_overs(start_time, operation, correct_answer, user_answer, question)
                         game_continues = False
                         break
 
@@ -228,10 +267,15 @@ def main():
         if not game_continues:
             continue
 
-        game_over(start_time)
+        # Update the fastest time for the current operation
+        if time.time() - start_time < fastest_time_for_operation:
+            fastest_time_for_operation = time.time() - start_time
+            fastest_times[operation.lower()] = fastest_time_for_operation
+
+        winning_screen(start_time, operation)
+
+        # Reset the timer for the next round
+        start_time = 0
 
 if __name__ == "__main__":
     main()
-
-
-
