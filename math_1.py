@@ -21,8 +21,8 @@ BACKGROUND_COLOR = (38, 70, 83)  # Nice background color
 title_font = pygame.font.Font(None, 72)
 menu_font = pygame.font.Font(None, 36)
 text_font = pygame.font.Font(None, 48)
-question_font = pygame.font.Font(None, 65)
-correct_font = pygame.font.Font(None, 64)  # Bigger font for "Correct!"
+question_font = pygame.font.Font(None, 80)
+correct_font = pygame.font.Font(None, 90)  # Bigger font for "Correct!"
 
 # Confetti parameters
 confetti_particles = []
@@ -31,6 +31,7 @@ confetti_particles = []
 score = 0
 clock = pygame.time.Clock()
 questions_per_round = 10
+use_negative_numbers = False 
 
 # Operation symbols for generating questions
 operation_symbols = {
@@ -51,8 +52,13 @@ fastest_times = {
 }
 
 def generate_question(operation=None):
-    num1 = random.randint(-10, 10)
-    num2 = random.randint(1, 10)  # Ensure non-zero denominator for division
+    if use_negative_numbers:
+        num1 = random.randint(-10, 10)
+        num2 = random.randint(-10, 10)  # Ensuring non-zero for division
+          # Ensuring non-zero for division
+    else:
+        num1 = random.randint(0, 10)
+        num2 = random.randint(1, 10)
     operator = operation if operation else random.choice(['+', '-', '*', '/'])
 
     if operator == '/':
@@ -90,7 +96,8 @@ def update_confetti():
 
 def show_menu():
     selected_option = 0
-    operation_options = ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Mixed Mode']
+    global use_negative_numbers
+    operation_options = ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Mixed Mode', 'Allow negative Numbers']
 
     while True:
         screen.fill(BACKGROUND_COLOR)
@@ -98,12 +105,16 @@ def show_menu():
         title_text = title_font.render("Math Game", True, WHITE)
         screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 50))
 
-        menu_text = menu_font.render("Select Operation:", True, WHITE)
+        menu_text = menu_font.render("Select Option:", True, WHITE)
         screen.blit(menu_text, (WIDTH // 2 - menu_text.get_width() // 2, HEIGHT // 2 - 150))
 
         for i, option in enumerate(operation_options):
             text_color = WHITE if i != selected_option else GREEN
-            draw_text(f"{i + 1}. {option}", menu_font, text_color, WIDTH // 2, HEIGHT // 2 - 50 + i * 50)
+            draw_text(f" {option}", menu_font, text_color, WIDTH // 2, HEIGHT // 2 - 50 + i * 50)
+
+        checkbox_x = WIDTH // 2 +230
+        checkbox_y = HEIGHT // 2 - 50 + 5 * 50 -10
+        draw_checkbox(checkbox_x, checkbox_y, use_negative_numbers)
 
         pygame.display.flip()
 
@@ -118,6 +129,16 @@ def show_menu():
                     selected_option = (selected_option - 1) % len(operation_options)
                 elif event.key == pygame.K_RETURN:
                     return operation_options[selected_option]  # Return the selected operation as is
+                elif event.key == pygame.K_RETURN:
+                    if selected_option == len(operation_options) - 1:  # Toggle option selected
+                        use_negative_numbers = not use_negative_numbers
+                        return None  # Return to the menu
+                    else:
+                        return operation_options[selected_option]
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_x, mouse_y = event.pos
+                    if checkbox_x <= mouse_x <= checkbox_x + 20 and checkbox_y <= mouse_y <= checkbox_y + 20:
+                        use_negative_numbers = not use_negative_numbers
                 elif event.key == pygame.K_ESCAPE:
                     pygame.event.clear()  # Clear events to prevent capturing Escape in the main loop
                     return None  # Return None when Escape is pressed
@@ -136,7 +157,7 @@ def game_overs(start_time, operation, correct_answer, user_answer, question):
     screen.blit(question_text, (WIDTH // 2 - question_text.get_width() // 2, 200))
 
     # Display the correct answer
-    correct_answer_text = text_font.render(f"Correct Answer: {correct_answer}", True, GREEN)
+    correct_answer_text = text_font.render(f"Correct Answer: {int(correct_answer)}", True, GREEN)
     screen.blit(correct_answer_text, (WIDTH // 2 - correct_answer_text.get_width() // 2, 300))
 
     # Display the user's answer
@@ -157,7 +178,12 @@ def draw_progress_bar(current, total, bar_width=600, bar_height=20):
     pygame.draw.rect(screen, GREEN, [bar_x, bar_y, fill_width, bar_height])  # Filled part of the bar
 
 
-
+def draw_checkbox(x, y, is_checked):
+    color = GREEN if is_checked else WHITE
+    pygame.draw.rect(screen, color, (x, y, 20, 20), 1)
+    if is_checked:
+        pygame.draw.line(screen, color, (x, y), (x + 18, y + 18), 2)
+        pygame.draw.line(screen, color, (x, y + 18), (x + 18, y), 2)
 
 def winning_screen(start_time, operation):
     screen.fill(BACKGROUND_COLOR)
@@ -167,7 +193,7 @@ def winning_screen(start_time, operation):
 
     # Display elapsed time in seconds
     elapsed_time = time.time() - start_time
-    elapsed_time_text = text_font.render(f"Time: {elapsed_time:.2f} seconds", True, WHITE)
+    elapsed_time_text = text_font.render(f"Your time: {elapsed_time:.2f} seconds", True, WHITE)
     screen.blit(elapsed_time_text, (WIDTH // 2 - elapsed_time_text.get_width() // 2, HEIGHT // 2 + 50))
 
     # Display the fastest time for the current operation in seconds (convert to lowercase)
@@ -183,11 +209,16 @@ def winning_screen(start_time, operation):
     pygame.time.wait(3000)
 
 def main():
+    global use_negative_numbers
     while True:
         operation = show_menu()
 
         if operation is None:
             continue  # Go back to the main menu if operation is None
+
+        if operation == 'Allow negative Numbers':
+            use_negative_numbers = not use_negative_numbers
+            continue  # Go back to the main menu
 
         game_continues = True
         current_question_number = 0
@@ -267,7 +298,7 @@ def main():
                             draw_text(combined_text, question_font, WHITE, WIDTH // 2, HEIGHT // 2)
 
                             if correct_message_displayed:
-                                draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 6)
+                                draw_text("Correct!", correct_font, GREEN, WIDTH // 2, HEIGHT // 4)
 
                             draw_progress_bar(current_question_number, questions_per_round)
 
