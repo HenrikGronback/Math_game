@@ -117,7 +117,7 @@ def show_menu():
 
         clock.tick(30)
 
-def game_over():
+def game_over(start_time):
     screen.fill(BACKGROUND_COLOR)
     
     title_text = title_font.render("Game Over", True, WHITE)
@@ -125,6 +125,11 @@ def game_over():
 
     score_text = text_font.render(f"Your score: {score}", True, WHITE)
     screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, HEIGHT // 2 - 50))
+
+    elapsed_time = time.time() - start_time
+    formatted_time = time.strftime("%M:%S", time.gmtime(elapsed_time))
+    time_text = text_font.render(f"Time: {formatted_time}", True, WHITE)
+    screen.blit(time_text, (WIDTH // 2 - time_text.get_width() // 2, HEIGHT // 2 + 50))
 
     pygame.display.flip()
     pygame.time.wait(3000)
@@ -223,11 +228,10 @@ def main():
         if not game_continues:
             continue
 
-        game_over()
+        game_over(start_time)
 
 if __name__ == "__main__":
     main()
-
 
 
 
