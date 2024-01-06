@@ -30,7 +30,6 @@ confetti_particles = []
 score = 0
 clock = pygame.time.Clock()
 questions_per_round = 10
-time_limit_per_question = 10  # in seconds
 
 # Operation symbols for generating questions
 operation_symbols = {
